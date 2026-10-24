@@ -16,11 +16,11 @@ use tokio::task::JoinHandle;
 use weave_core::auth::{self, Token};
 use weave_core::logging::ErrorChain;
 use weave_core::{
-    AdapterDescriptor, AdapterKind, AudioCodec, AudioConstraint, Container, DeclaredNode,
-    DesiredHop, FormatConstraint, HopEndpointClass, HopProfile, HopStatus, LinkClass,
-    LinkDescription, LocalEnd, MediaBehavior, NodeCapabilities, NodeDescriptor, NodeHeartbeat,
-    NodeRegistration, NodeStatus, PROTOCOL_VERSION, RoleSet, SessionDescription,
-    SignallingExchange, SignallingReply, Transport, TransportClass,
+    AudioCodec, AudioConstraint, Container, DeclaredNode, DesiredHop, FormatConstraint,
+    HopEndpointClass, HopProfile, HopStatus, LinkClass, LinkDescription, LocalEnd, MediaBehavior,
+    NodeCapabilities, NodeDescriptor, NodeHeartbeat, NodeRegistration, NodeStatus,
+    PROTOCOL_VERSION, RoleSet, SessionDescription, SignallingExchange, SignallingReply, Transport,
+    TransportClass,
 };
 use weave_reach::{Reach, STUN_SERVERS};
 
@@ -282,10 +282,6 @@ fn descriptor(config: &AdapterConfig, inventory: &Inventory, status: NodeStatus)
         endpoint: config.node.public_endpoint(),
         status,
         capabilities: NodeCapabilities {
-            adapters: vec![AdapterDescriptor {
-                name: "spaghetti".into(),
-                kind: AdapterKind::Spaghetti,
-            }],
             hop_profiles: profiles(),
         },
         topology: config.node.topology.clone(),

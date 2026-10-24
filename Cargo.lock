@@ -382,7 +382,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1118,7 +1118,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2039,7 +2039,7 @@ dependencies = [
 [[package]]
 name = "weave-core"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/kristalalfred/open-weave?branch=main#ad065f4ae553642a8ab2d8e2c9692fe14894fd91"
+source = "git+https://github.com/kristalalfred/open-weave?branch=main#0b15e4b36453f1a78d78949a062f296dd1a75e4b"
 dependencies = [
  "hmac",
  "schemars",
@@ -2055,7 +2055,7 @@ dependencies = [
 [[package]]
 name = "weave-reach"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/kristalalfred/open-weave?branch=main#ad065f4ae553642a8ab2d8e2c9692fe14894fd91"
+source = "git+https://github.com/kristalalfred/open-weave?branch=main#0b15e4b36453f1a78d78949a062f296dd1a75e4b"
 dependencies = [
  "getrandom 0.3.4",
  "netdev",
@@ -2115,7 +2115,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
