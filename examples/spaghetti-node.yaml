@@ -1,0 +1,13 @@
+node:
+  id: alfreds-mac
+  southbound_url: http://127.0.0.1:8081
+  listen: 127.0.0.1:8092
+  topology:
+    site:
+      id: lan
+      listeners:
+        srt:
+          port_range: { start: 23000, end: 23099 }
+spaghetti:
+  socket: /tmp/spaghetti.sock
+  poll_interval_ms: 1000

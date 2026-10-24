@@ -1,0 +1,37 @@
+[package]
+name = "weave-adapter-spaghetti"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/kristalalfred/weave-adapter-spaghetti"
+readme = "README.md"
+description = "open-weave southbound adapter for the spaghetti macOS audio router."
+keywords = ["audio", "srt", "webrtc", "macos", "spaghetti"]
+categories = ["multimedia::audio", "network-programming"]
+
+[dependencies]
+weave-core = { git = "https://github.com/kristalalfred/open-weave", branch = "main" }
+weave-reach = { git = "https://github.com/kristalalfred/open-weave", branch = "main" }
+spaghetti-common = { git = "https://github.com/kristalalfred/spaghetti", branch = "master" }
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time", "io-util"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "rustls-tls-native-roots"] }
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_norway = "0.9"
+tracing = "0.1"
+anyhow = "1"
+thiserror = "2"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = "symbols"
