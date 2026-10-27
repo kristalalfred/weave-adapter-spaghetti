@@ -85,17 +85,19 @@ topology:
         installed_config_for("http://192.168.1.10:29081", relay_network)
     }
 
-    fn installed_config_for(southbound_url: &str, relay_network: &str) -> NodeConfig {
-        let script = include_str!("../install.sh")
-            .replace("__SOUTHBOUND_URL__", southbound_url)
-            .replace("__RELAY_NETWORK__", relay_network);
+    fn run_installer(placeholders: &[(&str, &str)], call: &str, args: &[&str]) -> String {
+        let mut script = include_str!("../install.sh").to_string();
+        for (placeholder, value) in placeholders {
+            script = script.replace(placeholder, value);
+        }
         let script = script
             .strip_suffix("main \"$@\"\n")
             .expect("install.sh ends by running main");
         let output = std::process::Command::new("bash")
             .arg("-c")
-            .arg(format!("{script}node_config \"$@\"\n"))
-            .args(["install.sh", "alfreds-mac", "alfreds-mac.0.c0ffee"])
+            .arg(format!("{script}{call}\n"))
+            .arg("install.sh")
+            .args(args)
             .output()
             .expect("running bash");
         assert!(
@@ -103,7 +105,18 @@ topology:
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
-        let text = String::from_utf8(output.stdout).expect("UTF-8 config");
+        String::from_utf8(output.stdout).expect("UTF-8 output")
+    }
+
+    fn installed_config_for(southbound_url: &str, relay_network: &str) -> NodeConfig {
+        let text = run_installer(
+            &[
+                ("__SOUTHBOUND_URL__", southbound_url),
+                ("__RELAY_NETWORK__", relay_network),
+            ],
+            "node_config \"$@\"",
+            &["alfreds-mac", "alfreds-mac.0.c0ffee"],
+        );
         let config: AdapterConfig =
             serde_norway::from_str(&text).unwrap_or_else(|error| panic!("{error}\n{text}"));
         assert_eq!(config.node.validate(), Ok(()), "{text}");
@@ -132,6 +145,53 @@ topology:
     fn an_installer_for_a_public_southbound_points_the_node_at_it() {
         let url = "https://weave-southbound.example.com:8443";
         assert_eq!(installed_config_for(url, "").southbound_url, url);
+    }
+
+    const BENCH: &str = "http://alfreds-macbook-pro.local:29081";
+
+    fn southbound_chosen(url: &str, address: &str, this_mac: &str, answers: bool) -> String {
+        let stubs = format!("scutil() {{ echo {this_mac}; }}\ncurl() {{ {answers}; }}");
+        run_installer(
+            &[
+                ("__SOUTHBOUND_URL__", url),
+                ("__SOUTHBOUND_ADDRESS__", address),
+            ],
+            &format!("{stubs}\nchoose_southbound >/dev/null\nprintf %s \"$southbound_url\""),
+            &[],
+        )
+    }
+
+    #[test]
+    fn the_bench_macs_own_node_reaches_southbound_over_loopback() {
+        assert_eq!(
+            southbound_chosen(BENCH, "10.4.0.86", "Alfreds-MacBook-Pro", true),
+            "http://127.0.0.1:29081"
+        );
+    }
+
+    #[test]
+    fn other_macs_reach_the_bench_by_its_bonjour_name() {
+        assert_eq!(
+            southbound_chosen(BENCH, "10.4.0.86", "Ludvigs-MacBook-Pro", true),
+            BENCH
+        );
+    }
+
+    #[test]
+    fn a_mac_that_cannot_reach_the_bench_by_name_dials_its_address() {
+        assert_eq!(
+            southbound_chosen(BENCH, "10.4.0.86", "Ludvigs-MacBook-Pro", false),
+            "http://10.4.0.86:29081"
+        );
+    }
+
+    #[test]
+    fn a_southbound_without_an_address_is_kept_when_it_does_not_answer() {
+        let url = "https://weave-southbound.example.com:8443";
+        assert_eq!(
+            southbound_chosen(url, "", "Ludvigs-MacBook-Pro", false),
+            url
+        );
     }
 
     #[test]

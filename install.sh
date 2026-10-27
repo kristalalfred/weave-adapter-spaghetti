@@ -3,6 +3,7 @@ set -euo pipefail
 
 bundle_url="__BUNDLE_URL__"
 southbound_url="__SOUTHBOUND_URL__"
+southbound_address="__SOUTHBOUND_ADDRESS__"
 southbound_key="__SOUTHBOUND_KEY__"
 relay_network="__RELAY_NETWORK__"
 bin="$HOME/.local/bin"
@@ -49,6 +50,18 @@ check_platform() {
     IFS=. read -r major minor _ <<<"$version.0.0"
     if [ "$major" -lt 14 ] || { [ "$major" -eq 14 ] && [ "$minor" -lt 2 ]; }; then
         die "spaghetti needs macOS 14.2 or later; this Mac runs $version"
+    fi
+}
+
+choose_southbound() {
+    local host
+    host="${southbound_url#*://}"
+    host="${host%%[:/]*}"
+    if [ "$host" = "$(scutil --get LocalHostName | tr '[:upper:]' '[:lower:]').local" ]; then
+        southbound_url="${southbound_url/$host/127.0.0.1}"
+    elif [ -n "$southbound_address" ] && ! curl -fsS --max-time 5 -o /dev/null "$southbound_url/health" 2>/dev/null; then
+        say "$host does not answer from this Mac; dialling $southbound_address, so a new address on that Mac takes a reinstall"
+        southbound_url="${southbound_url/$host/$southbound_address}"
     fi
 }
 
@@ -189,6 +202,7 @@ main() {
         return
     fi
     check_platform
+    choose_southbound
     local node from probes registered
     node="$(node_id "${1:-}")"
     [ -n "$node" ] || die "name this node: curl -fsSL ${bundle_url%/*}/install.sh | bash -s -- <name>"

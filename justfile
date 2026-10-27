@@ -65,8 +65,10 @@ installer port="29097" relay_network="":
     launchctl plist __TEXT,__info_plist "$daemon" 2>/dev/null | grep -q NSLocalNetworkUsageDescription \
         || { echo "$daemon cannot ask for Local Network access; reinstall spaghetti" >&2; exit 1; }
     cargo build --release --quiet
+    address=""
     if [ -z "$southbound" ]; then
-        southbound="http://$lan:29081"
+        southbound="http://$(scutil --get LocalHostName | tr '[:upper:]' '[:lower:]').local:29081"
+        address="$lan"
         WEAVE_SOUTHBOUND_KEY="${WEAVE_SOUTHBOUND_KEY:-bench-southbound-key-for-local-use-only}"
     fi
     dir="$(mktemp -d)"; trap 'rm -rf "$dir"' EXIT
@@ -76,8 +78,8 @@ installer port="29097" relay_network="":
     COPYFILE_DISABLE=1 tar --no-mac-metadata -czf "$dir/node.tar.gz" -C "$dir/node" .
     rm -rf "$dir/node"
     BUNDLE_URL="http://$lan:{{port}}/node.tar.gz" SOUTHBOUND_URL="$southbound" \
-        SOUTHBOUND_KEY="$WEAVE_SOUTHBOUND_KEY" RELAY_NETWORK="$relay" \
-        perl -pe 's/__(BUNDLE_URL|SOUTHBOUND_URL|SOUTHBOUND_KEY|RELAY_NETWORK)__/$ENV{$1}/g' \
+        SOUTHBOUND_ADDRESS="$address" SOUTHBOUND_KEY="$WEAVE_SOUTHBOUND_KEY" RELAY_NETWORK="$relay" \
+        perl -pe 's/__(BUNDLE_URL|SOUTHBOUND_URL|SOUTHBOUND_ADDRESS|SOUTHBOUND_KEY|RELAY_NETWORK)__/$ENV{$1}/g' \
         install.sh >"$dir/install.sh"
     echo "nodes join the southbound at $southbound"
     echo "on any Mac, run:"
