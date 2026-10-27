@@ -1,4 +1,7 @@
 label := "com.open-weave.adapter-spaghetti"
+node_config := home_directory() / "Library/Application Support/open-weave/spaghetti-node.yaml"
+northbound := "http://localhost:29080"
+northbound_auth := "Authorization: Bearer " + env("WEAVE_NORTHBOUND_TOKEN", "bench-northbound-token")
 
 default:
     @just --list
@@ -85,3 +88,52 @@ installer port="29097" relay_network="":
     echo "on any Mac, run:"
     echo "  curl -fsSL http://$lan:{{port}}/install.sh | bash"
     python3 -m http.server {{port}} -d "$dir" --bind "$lan"
+
+[doc("Send <app>'s audio on this Mac to the built-in speakers of every other spaghetti node on the bench. Run it again to reach Macs that joined since.")]
+send app="zen":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    stream="{{app}}-to-others"
+    me="$(awk '/^  id:/ { print $2; exit }' "{{node_config}}" 2>/dev/null || true)"
+    [ -n "$me" ] || { echo "this Mac has no installed node; install one with the script 'just installer' serves" >&2; exit 1; }
+    nodes="$(curl -fsS -H "{{northbound_auth}}" {{northbound}}/nodes)"
+    jq -e --arg me "$me" --arg app "{{app}}" 'any(.[].node; .id == $me and any(.inputs[]; .id == $app))' <<<"$nodes" >/dev/null \
+        || { echo "$me has no running app {{app}}" >&2; exit 1; }
+    receivers="$(jq -c --arg me "$me" '[.[].node
+        | select(.id != $me and .status == "ready")
+        | select(any(.capabilities.hop_profiles[]; .id == "srt-to-speaker" or .id == "webrtc-to-speaker"))
+        | {node: .id, output: ([.outputs[] | select(.id | endswith("-speakers")) | .id] | first)}]' <<<"$nodes")"
+    jq -r '.[] | select(.output == null) | "skipping \(.node): it has no built-in speakers"' <<<"$receivers" >&2
+    body="$(jq -c --arg name "$stream" --arg me "$me" --arg app "{{app}}" '{
+        name: $name,
+        enabled: true,
+        source: {input: {node: $me, id: $app}},
+        destinations: [.[] | select(.output) | {id: .node, output: {node: .node, id: .output}}]
+    }' <<<"$receivers")"
+    to="$(jq -r '[.destinations[].output.node] | join(", ")' <<<"$body")"
+    [ -n "$to" ] || { echo "no other Mac with speakers is on the bench yet" >&2; exit 1; }
+    etag="$(curl -sS -D - -o /dev/null -H "{{northbound_auth}}" "{{northbound}}/streams/$stream" | awk 'tolower($1) == "etag:" { print $2 }' | tr -d '\r')"
+    if [ -n "$etag" ]; then precondition="If-Match: $etag"; else precondition="If-None-Match: *"; fi
+    reply="$(curl -sS -w '\n%{http_code}' -H "{{northbound_auth}}" -H "$precondition" -H 'Content-Type: application/json' -d "$body" {{northbound}}/streams)"
+    [[ "$(tail -n1 <<<"$reply")" == 2* ]] || { echo "northbound refused $stream: $(sed '$d' <<<"$reply")" >&2; exit 1; }
+    for _ in $(seq 1 30); do
+        state="$(curl -fsS -H "{{northbound_auth}}" {{northbound}}/status | jq -c --arg name "$stream" '.streams[] | select(.name == $name)')"
+        case "$(jq -r .status <<<"$state")" in
+            flowing) echo "$stream: flowing to $to"; exit 0 ;;
+            awaiting_input) echo "$stream: connected to $to, waiting for {{app}} to play"; exit 0 ;;
+        esac
+        sleep 2
+    done
+    echo "$stream: $(jq -r .status <<<"$state")" >&2
+    jq -r '.conditions[] | select(.status == "false") | "  \(.detail)"' <<<"$state" >&2
+    exit 1
+
+[doc("Stop sending <app> to the others.")]
+unsend app="zen":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    stream="{{app}}-to-others"
+    etag="$(curl -sS -D - -o /dev/null -H "{{northbound_auth}}" "{{northbound}}/streams/$stream" | awk 'tolower($1) == "etag:" { print $2 }' | tr -d '\r')"
+    [ -n "$etag" ] || { echo "$stream is not running"; exit 0; }
+    curl -fsS -X DELETE -H "{{northbound_auth}}" -H "If-Match: $etag" "{{northbound}}/streams/$stream"
+    echo "stopped $stream"
